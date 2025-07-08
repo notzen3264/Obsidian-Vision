@@ -7,8 +7,8 @@ const app = express();
 const PORT = 8000;
 
 // Replace with your actual YouTube Data API key
-const API_KEY = "AIzaSyDOpsDUJxMfg24fz8mARnpypoB_-FGWsho";
-
+const API_KEY = "AIzaSyBd1kAA_55cWHXlLzE1RtDB-6xcPcPsIuA";
+//AIzaSyDOpsDUJxMfg24fz8mARnpypoB_-FGWsho
 app.use(cors());
 app.use(express.static(path.join(__dirname, "public"))); // Serves static files from /public
 
