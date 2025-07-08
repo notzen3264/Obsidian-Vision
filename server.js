@@ -2,7 +2,7 @@ const express = require("express");
 const fetch = require("node-fetch");
 const cors = require("cors");
 const app = express();
-const PORT = 3000;
+const PORT = 8000;
 
 // Replace with your own API key!
 const API_KEY = "AIzaSyDOpsDUJxMfg24fz8mARnpypoB_-FGWsho";
