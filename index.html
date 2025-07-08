@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="system">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Obsidian Vision</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f4f4f4;
+      --fg: #222;
+      --card-bg: #ffffff;
+    }
+    [data-theme='dark'] {
+      --bg: #181818;
+      --fg: #eee;
+      --card-bg: #222;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg);
+      color: var(--fg);
+      text-align: center;
+      padding: 20px;
+      transition: background 0.3s ease;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 15px;
+    }
+
+    input {
+      width: 50%;
+      padding: 12px;
+      font-size: 16px;
+      border: none;
+      border-radius: 12px;
+      margin-bottom: 15px;
+      box-shadow: 0 0 0 2px #ccc;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      font-size: 16px;
+      border: none;
+      border-radius: 12px;
+      background-color: #6200ee;
+      color: white;
+      cursor: pointer;
+      margin-bottom: 25px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    .btn:hover {
+      background-color: #4500b5;
+    }
+
+    .toggle-theme {
+      float: right;
+      margin-top: 60px;
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 5px 12px;
+      border-radius: 50px;
+      background: #ddd;
+      display: none;
+    }
+
+    .video-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+      padding: 10px;
+    }
+
+    .video-item {
+      background: var(--card-bg);
+      border-radius: 15px;
+      padding: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      transition: transform 0.2s ease;
+      cursor: pointer;
+    }
+
+    .video-item:hover {
+      transform: scale(1.03);
+    }
+
+    .video-item img {
+      width: 100%;
+      border-radius: 12px;
+    }
+
+    .video-item h4 {
+      margin: 8px 0 4px;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .video-item p {
+      font-size: 0.9rem;
+      color: #777;
+      margin: 0;
+    }
+
+    #loading {
+      margin: 20px auto;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      border: 6px solid #ccc;
+      border-top: 6px solid #6200ee;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    #videoModal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.85);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    #videoModal iframe {
+      width: 80%;
+      height: 60vh;
+      border: none;
+      border-radius: 16px;
+    }
+
+    #closeModal {
+      position: absolute;
+      top: 20px;
+      right: 40px;
+      font-size: 2rem;
+      color: #fff;
+      cursor: pointer;
+      padding: 10px;
+      border-radius: 50px;
+      background: rgba(255,255,255,0.2);
+    }
+  </style>
+</head>
+<body>
+  <div class="toggle-theme" onclick="toggleTheme()">🌓</div>
+  <h1>🎥 Obsidian Vision</h1>
+  <input type="text" id="searchQuery" placeholder="Search videos..." />
+  <button class="btn" onclick="searchVideos()">Search</button>
+
+  <h2 id="searchHeader"></h2>
+  <div id="loading" style="display:none;"></div>
+  <div id="videoResults" class="video-container"></div>
+
+  <div id="videoModal">
+    <div id="closeModal" onclick="closeModal()">×</div>
+    <iframe id="modalPlayer" allowfullscreen></iframe>
+  </div>
+
+  <script>
+    const API_KEY = "AIzaSyDOpsDUJxMfg24fz8mARnpypoB_-FGWsho";
+    let allVideos = [];
+    let nextPageToken = null;
+
+    const savedTheme = localStorage.getItem("obsidianTheme");
+    if (savedTheme) {
+      document.documentElement.setAttribute("data-theme", savedTheme);
+    }
+
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute("data-theme");
+      const next = current === "light" ? "dark" : current === "dark" ? "system" : "light";
+      document.documentElement.setAttribute("data-theme", next);
+      localStorage.setItem("obsidianTheme", next);
+    }
+
+    function searchVideos() {
+      const query = document.getElementById("searchQuery").value.trim();
+      if (!query) return alert("Please enter a search term!");
+
+      document.getElementById("searchHeader").textContent = `Search results for "${query}"`;
+      document.getElementById("loading").style.display = "block";
+      document.getElementById("videoResults").innerHTML = "";
+      allVideos = [];
+      nextPageToken = null;
+      fetchVideos(query);
+    }
+
+    function fetchVideos(query) {
+      const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=12${nextPageToken ? `&pageToken=${nextPageToken}` : ""}&key=${API_KEY}`;
+
+      fetch(url, {
+        headers: { Referer: "https://obsidian-video-search.netlify.app" }
+      })
+        .then(res => res.json())
+        .then(data => {
+          nextPageToken = data.nextPageToken;
+          allVideos.push(...data.items.filter(v => v.id?.videoId));
+          displayVideos();
+        })
+        .catch(err => {
+          console.error(err);
+          alert("Failed to fetch videos");
+        });
+    }
+
+    function displayVideos() {
+      const container = document.getElementById("videoResults");
+      document.getElementById("loading").style.display = "none";
+
+      allVideos.forEach(item => {
+        const videoId = item.id.videoId;
+        const title = item.snippet.title;
+        const thumbnail = item.snippet.thumbnails.medium.url;
+        const creator = item.snippet.channelTitle;
+
+        const card = document.createElement("div");
+        card.className = "video-item";
+        card.innerHTML = `
+          <img src="${thumbnail}" alt="${title}" />
+          <h4>${title}</h4>
+          <p>by ${creator}</p>
+        `;
+        card.onclick = () => showModal(videoId);
+        container.appendChild(card);
+      });
+    }
+
+    function showModal(videoId) {
+      document.getElementById("videoModal").style.display = "flex";
+      document.getElementById("modalPlayer").src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+    }
+
+    function closeModal() {
+      document.getElementById("videoModal").style.display = "none";
+      document.getElementById("modalPlayer").src = "";
+    }
+
+    window.addEventListener("scroll", () => {
+      if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 50 && nextPageToken) {
+        const query = document.getElementById("searchQuery").value.trim();
+        fetchVideos(query);
+      }
+    });
+  </script>
+</body>
+</html>
