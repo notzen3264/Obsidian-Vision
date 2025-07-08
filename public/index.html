@@ -18,12 +18,16 @@
       padding: 10px;
       font-size: 16px;
       border-radius: 8px;
+      border: 1px solid #ccc;
     }
     .btn {
       background-color: #6200ee;
       color: white;
       border: none;
       cursor: pointer;
+    }
+    .btn:hover {
+      background-color: #4500b5;
     }
     .video-container {
       display: grid;
@@ -36,10 +40,42 @@
       border-radius: 10px;
       background: white;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      transition: transform 0.2s ease;
+    }
+    .video-item:hover {
+      transform: scale(1.02);
     }
     .video-item img {
       width: 100%;
       border-radius: 8px;
+    }
+
+    #videoModal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    #videoModal iframe {
+      width: 80%;
+      height: 60vh;
+      border-radius: 12px;
+      border: none;
+    }
+    #closeModal {
+      position: absolute;
+      top: 20px;
+      right: 40px;
+      font-size: 2rem;
+      color: #fff;
+      cursor: pointer;
+      background: rgba(255,255,255,0.2);
+      padding: 10px;
+      border-radius: 50px;
     }
   </style>
 </head>
@@ -49,38 +85,86 @@
   <button class="btn" onclick="searchVideos()">Search</button>
   <div id="videoResults" class="video-container"></div>
 
+  <div id="videoModal">
+    <div id="closeModal" onclick="closeModal()">×</div>
+    <iframe id="modalPlayer" allowfullscreen></iframe>
+  </div>
+
   <script>
+    let currentQuery = "";
+    let nextPageToken = null;
+    let loading = false;
+
     function searchVideos() {
       const query = document.getElementById("searchQuery").value.trim();
       if (!query) return alert("Enter a search term");
 
-      fetch("/api/search?q=" + encodeURIComponent(query))
+      currentQuery = query;
+      nextPageToken = null;
+      document.getElementById("videoResults").innerHTML = "";
+      fetchVideos();
+    }
+
+    function fetchVideos() {
+      if (loading) return;
+      loading = true;
+
+      let endpoint = "/api/search?q=" + encodeURIComponent(currentQuery);
+      if (nextPageToken) endpoint += `&pageToken=${nextPageToken}`;
+
+      fetch(endpoint)
         .then(res => res.json())
         .then(data => {
-          const container = document.getElementById("videoResults");
-          container.innerHTML = "";
-          data.forEach(item => {
-            const videoId = item.id.videoId;
-            const title = item.snippet.title;
-            const creator = item.snippet.channelTitle;
-            const thumbnail = item.snippet.thumbnails.medium.url;
-
-            const card = document.createElement("div");
-            card.className = "video-item";
-            card.innerHTML = `
-              <img src="${thumbnail}" alt="${title}" />
-              <h4>${title}</h4>
-              <p>by ${creator}</p>
-            `;
-            card.onclick = () => window.open(`https://www.youtube.com/watch?v=${videoId}`, "_blank");
-            container.appendChild(card);
-          });
+          const items = data.items || data;
+          nextPageToken = data.nextPageToken || null;
+          displayVideos(items);
         })
         .catch(err => {
           console.error("Error:", err);
           alert("Search failed. See console for details.");
+        })
+        .finally(() => {
+          loading = false;
         });
     }
+
+    function displayVideos(items) {
+      const container = document.getElementById("videoResults");
+
+      items.forEach(item => {
+        const videoId = item.id.videoId;
+        const title = item.snippet.title;
+        const creator = item.snippet.channelTitle;
+        const thumbnail = item.snippet.thumbnails.medium.url;
+
+        const card = document.createElement("div");
+        card.className = "video-item";
+        card.innerHTML = `
+          <img src="${thumbnail}" alt="${title}" />
+          <h4>${title}</h4>
+          <p>by ${creator}</p>
+        `;
+        card.onclick = () => showModal(videoId);
+        container.appendChild(card);
+      });
+    }
+
+    function showModal(videoId) {
+      document.getElementById("videoModal").style.display = "flex";
+      document.getElementById("modalPlayer").src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+    }
+
+    function closeModal() {
+      document.getElementById("videoModal").style.display = "none";
+      document.getElementById("modalPlayer").src = "";
+    }
+
+    window.addEventListener("scroll", () => {
+      const bottomReached = window.innerHeight + window.scrollY >= document.body.offsetHeight - 100;
+      if (bottomReached && nextPageToken && currentQuery) {
+        fetchVideos();
+      }
+    });
   </script>
 </body>
 </html>
