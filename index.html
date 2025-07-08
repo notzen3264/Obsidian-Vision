@@ -9,7 +9,7 @@
     :root {
       --bg: #f4f4f4;
       --fg: #222;
-      --card-bg: #ffffff;
+      --card-bg: #fff;
     }
     [data-theme='dark'] {
       --bg: #181818;
@@ -60,13 +60,12 @@
 
     .toggle-theme {
       float: right;
-      margin-top: 60px;
+      margin-top: -60px;
       font-size: 1.5rem;
       cursor: pointer;
       padding: 5px 12px;
       border-radius: 50px;
       background: #ddd;
-      display: none;
     }
 
     .video-container {
@@ -149,6 +148,29 @@
       border-radius: 50px;
       background: rgba(255,255,255,0.2);
     }
+
+    #errorToast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #ff3b3b;
+      color: white;
+      padding: 14px 24px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      z-index: 2000;
+      max-width: 80%;
+      white-space: pre-wrap;
+      word-break: break-word;
+      animation: slideUp 0.5s ease;
+    }
+
+    @keyframes slideUp {
+      from { transform: translateX(-50%) translateY(30px); opacity: 0; }
+      to   { transform: translateX(-50%) translateY(0); opacity: 1; }
+    }
   </style>
 </head>
 <body>
@@ -166,6 +188,8 @@
     <iframe id="modalPlayer" allowfullscreen></iframe>
   </div>
 
+  <div id="errorToast" style="display:none;"></div>
+
   <script>
     const API_KEY = "AIzaSyDOpsDUJxMfg24fz8mARnpypoB_-FGWsho";
     let allVideos = [];
@@ -181,6 +205,15 @@
       const next = current === "light" ? "dark" : current === "dark" ? "system" : "light";
       document.documentElement.setAttribute("data-theme", next);
       localStorage.setItem("obsidianTheme", next);
+    }
+
+    function showErrorToast(message) {
+      const toast = document.getElementById("errorToast");
+      toast.textContent = message;
+      toast.style.display = "block";
+      setTimeout(() => {
+        toast.style.display = "none";
+      }, 7000);
     }
 
     function searchVideos() {
@@ -201,21 +234,32 @@
       fetch(url, {
         headers: { Referer: "https://obsidian-video-search.netlify.app" }
       })
-        .then(res => res.json())
-        .then(data => {
-          nextPageToken = data.nextPageToken;
-          allVideos.push(...data.items.filter(v => v.id?.videoId));
-          displayVideos();
-        })
-        .catch(err => {
-          console.error(err);
-          alert("Failed to fetch videos");
-        });
+      .then(async res => {
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(`HTTP ${res.status} - ${res.statusText}\n${errorText}`);
+        }
+        return res.json();
+      })
+      .then(data => {
+        nextPageToken = data.nextPageToken;
+        allVideos.push(...data.items.filter(v => v.id?.videoId));
+        displayVideos();
+      })
+      .catch(err => {
+        console.error("🚨 Fetch error in Obsidian Vision:");
+        console.error("🔹 URL:", url);
+        console.error("🔹 Message:", err.message);
+        console.error("🔹 Stack Trace:", err.stack);
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("videoResults").innerHTML = `<p style="color:red; font-weight:600;">Oops, something went wrong!</p>`;
+        showErrorToast(`Error: ${err.message}\nCheck console for details.`);
+      });
     }
 
     function displayVideos() {
       const container = document.getElementById("videoResults");
-      document.getElementById("loading").style.display = "none";
+           document.getElementById("loading").style.display = "none";
 
       allVideos.forEach(item => {
         const videoId = item.id.videoId;
@@ -246,9 +290,12 @@
     }
 
     window.addEventListener("scroll", () => {
-      if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 50 && nextPageToken) {
+      if (
+        window.innerHeight + window.scrollY >= document.body.offsetHeight - 50 &&
+        nextPageToken
+      ) {
         const query = document.getElementById("searchQuery").value.trim();
-        fetchVideos(query);
+        if (query) fetchVideos(query);
       }
     });
   </script>
