@@ -1,14 +1,19 @@
 const express = require("express");
 const fetch = require("node-fetch");
 const cors = require("cors");
+const path = require("path");
+
 const app = express();
 const PORT = 8000;
-
-// Replace with your own API key!
 const API_KEY = "AIzaSyDOpsDUJxMfg24fz8mARnpypoB_-FGWsho";
 
 app.use(cors());
-app.use(express.static("public")); // Serves index.html from /public
+app.use(express.static(path.join(__dirname, "public"))); // Serve static files
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html")); // Explicit root handler
+});
+
 app.get("/api/search", async (req, res) => {
   const query = req.query.q;
   if (!query) return res.status(400).json({ error: "Missing query" });
@@ -30,5 +35,6 @@ app.get("/api/search", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🧠 Obsidian Vision server running at http://localhost:${PORT}`);
+  console.log(`🧠 Obsidian Vision is live at http://localhost:${PORT}`);
 });
+
